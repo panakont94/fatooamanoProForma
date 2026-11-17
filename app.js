@@ -256,187 +256,172 @@ function clearAll() {
 /* ===========================================================
    PDF EXPORT
    =========================================================== */
+/* ===========================================================
+   PDF EXPORT - ΜΕ html2canvas (ΧΩΡΙΣ ΓΡΑΜΜΑΤΟΣΕΙΡΑ)
+   Τα ελληνικά φαίνονται πάντα σωστά!
+   =========================================================== */
 function exportPDF() {
-    try {
-        // Έλεγχος ότι τα libraries έχουν φορτώσει
-        if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
-            alert('⏳ Τα PDF libraries φορτώνουν ακόμα. Περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά.');
-            return;
-        }
-
+    // Δημιουργία προσωρινού element για το PDF
+    const pdfContent = createPDFContent();
+    document.body.appendChild(pdfContent);
+    
+    // Χρήση html2canvas για μετατροπή σε εικόνα
+    html2canvas(pdfContent, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false
+    }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
+        const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const data = collectData();
-        const margin = 15;
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = imgWidth / imgHeight;
         
-        // ---- HEADER ----
-        doc.setFillColor(61, 40, 23);
-        doc.rect(0, 0, pageWidth, 35, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text('FATTO A MANO', margin, 18);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Furniture Manufacturing | Kilkis, Greece', margin, 26);
-        doc.text('Tel: 23410 27706 | 6980736190 | 6944582862', margin, 32);
+        let width = pdfWidth;
+        let height = width / ratio;
         
-        // ---- TITLE ----
-        let y = 45;
-        doc.setTextColor(61, 40, 23);
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('PROFORMA TIMOLOGIO', pageWidth / 2, y, { align: 'center' });
-        y += 6;
-        doc.setDrawColor(201, 169, 97);
-        doc.setLineWidth(0.8);
-        doc.line(margin, y, pageWidth - margin, y);
-        
-        // ---- DATE ----
-        y += 10;
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(80, 80, 80);
-        const dateStr = data.date ? new Date(data.date).toLocaleDateString('el-GR') : '-';
-        doc.text(`Imerominia: ${dateStr}`, pageWidth - margin, y, { align: 'right' });
-        
-        // ---- CUSTOMER INFO ----
-        y += 14;
-        doc.setFillColor(250, 243, 232);
-        doc.roundedRect(margin, y - 5, pageWidth - 2 * margin, 32, 3, 3, 'F');
-        doc.setTextColor(61, 40, 23);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Stoixeia Pelati', margin + 5, y + 2);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(50, 50, 50);
-        const cx = margin + 5;
-        y += 8;
-        doc.text(`Onoma: ${data.customer.name || '-'}`, cx, y);
-        y += 5;
-        doc.text(`Dieuthinsi: ${data.customer.address || '-'}`, cx, y);
-        y += 5;
-        doc.text(`Tilefono: ${data.customer.phone || '-'}   |   Email: ${data.customer.email || '-'}`, cx, y);
-        y += 5;
-        doc.text(`AFM: ${data.customer.vat || '-'}   |   DOY: ${data.customer.doy || '-'}`, cx, y);
-        
-        // ---- ITEMS TABLE ----
-        y = 90;
-        const tableBody = data.items.map((item, i) => {
-            const lineTotal = item.qty * item.price;
-            return [
-                i + 1,
-                item.name || '-',
-                item.qty.toString(),
-                `€${item.price.toFixed(2).replace('.', ',')}`,
-                `€${lineTotal.toFixed(2).replace('.', ',')}`,
-            ];
-        });
-        
-        if (typeof doc.autoTable !== 'function') {
-            alert('Σφάλμα: Το plugin πίνακα δεν φορτώθηκε. Ανανεώστε τη σελίδα (F5).');
-            return;
+        if (height > pdfHeight) {
+            height = pdfHeight;
+            width = height * ratio;
         }
         
-        doc.autoTable({
-            startY: y,
-            head: [['#', 'Eidos', 'Posot.', 'Timi', 'Synolo']],
-            body: tableBody,
-            theme: 'grid',
-            headStyles: {
-                fillColor: [61, 40, 23],
-                textColor: [255, 255, 255],
-                fontStyle: 'bold',
-                fontSize: 10,
-                halign: 'center',
-            },
-            bodyStyles: { fontSize: 10, textColor: [50, 50, 50] },
-            alternateRowStyles: { fillColor: [255, 248, 240] },
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 12 },
-                1: { cellWidth: 80 },
-                2: { halign: 'center', cellWidth: 22 },
-                3: { halign: 'right', cellWidth: 28 },
-                4: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
-            },
-            margin: { left: margin, right: margin },
-            styles: { lineColor: [232, 213, 184], lineWidth: 0.2 },
-        });
+        const x = (pdfWidth - width) / 2;
+        const y = 0;
         
-        // ---- TOTALS ----
-        y = doc.lastAutoTable.finalY + 8;
-        const subtotal = data.items.reduce((s, i) => s + i.qty * i.price, 0);
-        const discount = parseFloat(data.discount) || 0;
-        const vatRate = parseFloat(data.vatRate) || 0;
-        const subtotalAfterDiscount = Math.max(0, subtotal - discount);
-        const vatAmount = subtotalAfterDiscount * (vatRate / 100);
-        const grandTotal = subtotalAfterDiscount + vatAmount;
-        const totalsX = pageWidth - margin - 70;
-        const totalsW = 70;
+        pdf.addImage(imgData, 'PNG', x, y, width, height);
+        pdf.save(`Proforma_${document.getElementById('customerName').value || 'Customer'}.pdf`);
         
-        doc.setFillColor(250, 243, 232);
-        doc.roundedRect(totalsX, y - 2, totalsW, 42, 2, 2, 'F');
-        doc.setFontSize(10);
-        doc.setTextColor(80, 80, 80);
-        doc.setFont('helvetica', 'normal');
-        let ty = y + 5;
-        doc.text('Yposynolo:', totalsX + 3, ty);
-        doc.text(`€${subtotal.toFixed(2).replace('.', ',')}`, totalsX + totalsW - 3, ty, { align: 'right' });
-        ty += 6;
-        doc.text(`FPA (${vatRate}%):`, totalsX + 3, ty);
-        doc.text(`€${vatAmount.toFixed(2).replace('.', ',')}`, totalsX + totalsW - 3, ty, { align: 'right' });
-        if (discount > 0) {
-            ty += 6;
-            doc.text('Ekptosi:', totalsX + 3, ty);
-            doc.text(`-€${discount.toFixed(2).replace('.', ',')}`, totalsX + totalsW - 3, ty, { align: 'right' });
-        }
-        ty += 8;
-        doc.setDrawColor(201, 169, 97);
-        doc.setLineWidth(0.5);
-        doc.line(totalsX + 3, ty - 2, totalsX + totalsW - 3, ty - 2);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(13);
-        doc.setTextColor(61, 40, 23);
-        doc.text('SYNOLO:', totalsX + 3, ty + 3);
-        doc.text(`€${grandTotal.toFixed(2).replace('.', ',')}`, totalsX + totalsW - 3, ty + 3, { align: 'right' });
+        // Καθαρισμός
+        document.body.removeChild(pdfContent);
+    }).catch(error => {
+        console.error('PDF Error:', error);
+        alert('Σφάλμα κατά την εξαγωγή PDF');
+        document.body.removeChild(pdfContent);
+    });
+}
+
+/* Δημιουργία περιεχομένου για το PDF */
+function createPDFContent() {
+    const data = collectData();
+    const subtotal = data.items.reduce((s, i) => s + i.qty * i.price, 0);
+    const discount = parseFloat(data.discount) || 0;
+    const vatRate = parseFloat(data.vatRate) || 0;
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+    const vatAmount = subtotalAfterDiscount * (vatRate / 100);
+    const grandTotal = subtotalAfterDiscount + vatAmount;
+    
+    const container = document.createElement('div');
+    container.style.cssText = `
+        width: 800px;
+        padding: 40px;
+        font-family: Arial, sans-serif;
+        background: white;
+        color: #333;
+        position: absolute;
+        left: -9999px;
+        top: 0;
+    `;
+    
+    let itemsRows = '';
+    data.items.forEach((item, i) => {
+        const lineTotal = item.qty * item.price;
+        itemsRows += `
+            <tr style="background: ${i % 2 === 0 ? '#FFF8F0' : '#FFFFFF'};">
+                <td style="padding: 10px; border-bottom: 1px solid #E8D5B8; text-align: center;">${i + 1}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #E8D5B8;">${item.name || '-'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #E8D5B8; text-align: center;">${item.qty}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #E8D5B8; text-align: right;">€${item.price.toFixed(2).replace('.', ',')}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #E8D5B8; text-align: right; font-weight: bold;">€${lineTotal.toFixed(2).replace('.', ',')}</td>
+            </tr>
+        `;
+    });
+    
+    container.innerHTML = `
+        <div style="background: #3D2817; padding: 30px; margin: -40px -40px 30px -40px;">
+            <h1 style="color: white; margin: 0; font-size: 32px; letter-spacing: 3px;">FATTO A MANO</h1>
+            <p style="color: #C9A961; margin: 5px 0 0 0; font-size: 14px;">Ξυλουργικές Εργασίες - Χειροποίητα Έπιπλα | Κιλκίς</p>
+            <p style="color: #999; margin: 5px 0 0 0; font-size: 12px;">Τηλ: 23410 27706 | 6980736190 | 6944582862</p>
+        </div>
         
-        // ---- NOTES ----
-        if (data.notes) {
-            y = ty + 18;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(61, 40, 23);
-            doc.text('Simeioseis:', margin, y);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(80, 80, 80);
-            const splitNotes = doc.splitTextToSize(data.notes, pageWidth - 2 * margin);
-            doc.text(splitNotes, margin, y + 6);
-        }
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #3D2817; font-size: 24px; margin: 0; border-bottom: 3px solid #C9A961; display: inline-block; padding-bottom: 10px;">PROFORMA ΤΙΜΟΛΟΓΙΟ</h2>
+        </div>
         
-        // ---- FOOTER ----
-        doc.setDrawColor(201, 169, 97);
-        doc.setLineWidth(0.5);
-        doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
-        doc.setFontSize(9);
-        doc.setTextColor(120, 120, 120);
-        doc.setFont('helvetica', 'italic');
-        doc.text('FATTO A MANO | Handcrafted Furniture since 1987 | Kilkis, Greece', pageWidth / 2, pageHeight - 14, { align: 'center' });
-        doc.text('Efxaristoume gia tin protimisi sas!', pageWidth / 2, pageHeight - 9, { align: 'center' });
+        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+            <div style="flex: 1;">
+                <h3 style="color: #3D2817; font-size: 14px; margin: 0 0 10px 0; text-transform: uppercase;">Στοιχεία Πελάτη</h3>
+                <table style="font-size: 13px; line-height: 1.8;">
+                    <tr><td style="color: #666; width: 100px;">Όνομα:</td><td><strong>${data.customer.name || '-'}</strong></td></tr>
+                    <tr><td style="color: #666;">Διεύθυνση:</td><td>${data.customer.address || '-'}</td></tr>
+                    <tr><td style="color: #666;">Τηλέφωνο:</td><td>${data.customer.phone || '-'}</td></tr>
+                    <tr><td style="color: #666;">Email:</td><td>${data.customer.email || '-'}</td></tr>
+                    <tr><td style="color: #666;">ΑΦΜ:</td><td>${data.customer.vat || '-'}</td></tr>
+                    <tr><td style="color: #666;">ΔΟΥ:</td><td>${data.customer.doy || '-'}</td></tr>
+                </table>
+            </div>
+            <div style="text-align: right;">
+                <p style="margin: 0; color: #666;">Ημερομηνία:</p>
+                <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #3D2817;">
+                    ${data.date ? new Date(data.date).toLocaleDateString('el-GR') : '-'}
+                </p>
+            </div>
+        </div>
         
-        // ---- SAVE ----
-        const filename = `Proforma_${data.customer.name || 'Customer'}_${data.date || 'draft'}.pdf`;
-        doc.save(filename.replace(/[^a-zA-Z0-9_.-]/g, '_'));
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead>
+                <tr style="background: #3D2817; color: white;">
+                    <th style="padding: 12px; text-align: center; width: 40px;">#</th>
+                    <th style="padding: 12px; text-align: left;">Είδος</th>
+                    <th style="padding: 12px; text-align: center; width: 60px;">Ποσ.</th>
+                    <th style="padding: 12px; text-align: right; width: 90px;">Τιμή</th>
+                    <th style="padding: 12px; text-align: right; width: 100px;">Σύνολο</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${itemsRows}
+            </tbody>
+        </table>
         
-    } catch (error) {
-        console.error('PDF Export Error:', error);
-        alert('Σφάλμα κατά την εξαγωγή PDF: ' + error.message);
-    }
+        <div style="display: flex; justify-content: flex-end;">
+            <div style="width: 250px; background: #FAF3E8; padding: 20px; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
+                    <span>Υποσύνολο:</span>
+                    <span>€${subtotal.toFixed(2).replace('.', ',')}</span>
+                </div>
+                ${discount > 0 ? `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #C1272D;">
+                    <span>Έκπτωση:</span>
+                    <span>-€${discount.toFixed(2).replace('.', ',')}</span>
+                </div>
+                ` : ''}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
+                    <span>ΦΠΑ (${vatRate}%):</span>
+                    <span>€${vatAmount.toFixed(2).replace('.', ',')}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 2px solid #C9A961; font-size: 18px; font-weight: bold; color: #3D2817;">
+                    <span>ΣΥΝΟΛΟ:</span>
+                    <span>€${grandTotal.toFixed(2).replace('.', ',')}</span>
+                </div>
+            </div>
+        </div>
+        
+        ${data.notes ? `
+        <div style="margin-top: 30px; padding: 15px; background: #f9f9f9; border-left: 4px solid #C9A961;">
+            <h4 style="margin: 0 0 8px 0; color: #3D2817; font-size: 13px;">Σημειώσεις:</h4>
+            <p style="margin: 0; font-size: 12px; color: #666; white-space: pre-wrap;">${data.notes}</p>
+        </div>
+        ` : ''}
+        
+        <div style="margin-top: 40px; text-align: center; color: #999; font-size: 11px; border-top: 1px solid #C9A961; padding-top: 15px;">
+            <p style="margin: 0;">FATTO A MANO | Χειροποίητα Έπιπλα από 1987 | Κιλκίς</p>
+            <p style="margin: 5px 0 0 0; color: #C9A961;">Ευχαριστούμε για την προτίμησή σας!</p>
+        </div>
+    `;
+    
+    return container;
 }
