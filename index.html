@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FATTO A MANO - Proforma Τιμολόγιο</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- jsPDF για εξαγωγή PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- SUPABASE: Ξεσκέπασε την παρακάτω γραμμή όταν είσαι έτοιμος -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> -->
+</head>
+<body>
+
+<!-- PASSWORD SCREEN -->
+<div class="password-screen" id="passwordScreen">
+    <div class="password-card">
+        <div class="logo">FATTO A MANO</div>
+        <div class="subtitle">Proforma Invoice System</div>
+        <input type="password" id="passwordInput" placeholder="Κωδικός Πρόσβασης" autocomplete="off">
+        <div class="error" id="passwordError">Λάθος κωδικός. Δοκιμάστε ξανά.</div>
+        <button onclick="checkPassword()">Είσοδος</button>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="app">
+    
+    <div class="app-header">
+        <div class="brand">
+            <h1>FATTO A MANO</h1>
+            <span>Proforma Τιμολόγιο</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="clearAll()">🗑️ Νέα Παραγγελία</button>
+            <button class="btn btn-outline" onclick="logout()">🔒 Αποσύνδεση</button>
+        </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="card">
+        <div class="card-title">Στοιχεία Πελάτη</div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Ονοματεπώνυμο / Εταιρεία</label>
+                <input type="text" id="customerName" placeholder="π.χ. Παπαδόπουλος Ιωάννης">
+            </div>
+            <div class="form-group">
+                <label>Τηλέφωνο</label>
+                <input type="tel" id="customerPhone" placeholder="69xxxxxxxx">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="customerEmail" placeholder="email@example.com">
+            </div>
+            <div class="form-group">
+                <label>ΑΦΜ</label>
+                <input type="text" id="customerVat" placeholder="000000000">
+            </div>
+            <div class="form-group">
+                <label>ΔΟΥ</label>
+                <input type="text" id="customerDoy" placeholder="π.χ. Κιλκίς">
+            </div>
+            <div class="form-group">
+                <label>Ημερομηνία</label>
+                <input type="date" id="invoiceDate">
+            </div>
+            <div class="form-group form-full">
+                <label>Διεύθυνση</label>
+                <input type="text" id="customerAddress" placeholder="Οδός, Αριθμός, Πόλη, ΤΚ">
+            </div>
+        </div>
+    </div>
+
+    <!-- Items -->
+    <div class="card">
+        <div class="card-title">Είδη Παραγγελίας</div>
+        <div class="items-container">
+            <table class="items-table" id="itemsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Είδος</th>
+                        <th class="th-qty">Ποσότητα</th>
+                        <th class="th-price">Τιμή (€)</th>
+                        <th class="th-total">Σύνολο</th>
+                        <th class="th-action"></th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody"></tbody>
+            </table>
+        </div>
+        <button class="btn btn-gold btn-add-item" onclick="addItem()">+ Προσθήκη Είδους</button>
+
+        <div class="totals-section">
+            <div class="totals-box">
+                <div class="totals-row">
+                    <span>Υποσύνολο:</span>
+                    <span id="subtotal">€0,00</span>
+                </div>
+                <div class="totals-row">
+                    <span>
+                        ΦΠΑ 
+                        <span class="vat-input-wrapper">
+                            (<input type="number" class="vat-input" id="vatRate" value="24" min="0" max="100" onchange="calculateTotals()" onfocus="this.select()">%):
+                        </span>
+                    </span>
+                    <span id="vatAmount">€0,00</span>
+                </div>
+                <div class="totals-row">
+                    <span>Έκπτωση (€):</span>
+                    <span>
+                        <input type="number" class="vat-input" id="discount" value="0" min="0" onchange="calculateTotals()" onfocus="this.select()" style="width:80px;">
+                    </span>
+                </div>
+                <div class="totals-row total-final">
+                    <span>Σύνολο:</span>
+                    <span id="grandTotal">€0,00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card">
+        <div class="card-title">Σημειώσεις</div>
+        <div class="form-group">
+            <textarea id="notes" rows="3" placeholder="π.χ. Χρόνος παράδοσης: 30 εργάσιμες ημέρες. Ισχύς προσφοράς: 15 ημέρες."></textarea>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-bar">
+        <div class="actions-left">
+            <button class="btn btn-outline" onclick="saveToLocal()">💾 Αποθήκευση</button>
+            <button class="btn btn-outline" onclick="loadFromLocal()">📂 Φόρτωση</button>
+        </div>
+        <button class="btn btn-success" onclick="exportPDF()">📄 Εξαγωγή σε PDF</button>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
